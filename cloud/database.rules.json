@@ -1,0 +1,17 @@
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null",
+    "garage": {
+      "status": {
+        ".validate": "newData.val() == 'OPEN' || newData.val() == 'CLOSED'"
+      },
+      "command": {
+        ".validate": "newData.val() == 'OPEN' || newData.val() == 'CLOSE' || newData.val() == 'IDLE'"
+      },
+      "last_event": {
+        ".validate": "newData.isNumber()"
+      }	
+    }
+  }
+}
