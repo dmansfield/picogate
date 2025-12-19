@@ -1,5 +1,8 @@
 # Hardware
 
+## IMPORTANT
+Read the parent README.md
+
 ## Parts List
 
 | Component       | Part/Model  |
@@ -67,3 +70,26 @@ import machine
 machine.reset()
 ```
 in the REPL.
+
+## Configuration
+In order to prevent sensitive data from being committed to the `main.py` file,
+a git filter is used (`../scripts/config_swap_filter.sh`).
+
+This filter must be manually added to your git config (see parent README.md).
+
+The filter swaps in two different versions of the configuration into the body
+of the `main.py` file, between the sentinel lines:
+
+```
+### BEGIN GENERATED CONTENT
+[ content in here is replaced ]
+### END GENERATED CONTENT
+```
+
+Two different versions of this content must exist, one of which you'll need
+to create and won't get checked in:
+ * `configuration.py.clean` is checked in and maintained by repo owners
+ * `configuration.py.sensitive` should be a copy maintained by you
+
+Note: you may need to manually add new keys if they're added during future
+development. Feel free to improve the config management and send a pull req.

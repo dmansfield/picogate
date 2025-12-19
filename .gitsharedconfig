@@ -1,0 +1,3 @@
+[filter "configsanitizer"]
+    clean = ./scripts/config_swap_filter.sh clean
+    smudge = ./scripts/config_swap_filter.sh sensitive

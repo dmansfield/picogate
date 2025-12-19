@@ -6,13 +6,16 @@ import network
 import ssl
 
 # --- CONFIGURATION ---
+# DO NOT EDIT BELOW. See README.md#configuration
+### BEGIN GENERATED CONTENT
 WIFI_SSID = ""
 WIFI_PASS = ""
-FIREBASE_HOSTNAME = "xxx-rtdb.firebaseio.com"
+FIREBASE_HOSTNAME = ""
 FIREBASE_SECRET = ""
 DOOR_SENSOR_PIN = 14
 RELAY_CONTROL_PIN = 99
 DOOR_SENSOR_DEBOUNCE_MS = 50
+### END GENERATED CONTENT
 # --- END CONFIGURATION ---
 
 # --- LED Control ---
