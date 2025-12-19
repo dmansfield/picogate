@@ -12,8 +12,9 @@ WIFI_PASS = ""
 FIREBASE_HOSTNAME = ""
 FIREBASE_SECRET = ""
 DOOR_SENSOR_PIN = 14
-RELAY_CONTROL_PIN = 99
+RELAY_CONTROL_PIN = 1
 DOOR_SENSOR_DEBOUNCE_MS = 50
+DOOR_RELAY_PULSE_TIME_MS = 300
 ### END GENERATED CONTENT
 # --- END CONFIGURATION ---
 
@@ -230,6 +231,18 @@ class Firebase:
             if connect_retry_wait < 3600:
                 connect_retry_wait *= 2
 
+class DoorTrigger:
+    def __init__(self, pin_number):
+        self.pin_number = pin_number
+        self.pin = Pin(pin_number, Pin.OUT)
+
+    async def trigger(self):
+        Blink.set_blink(Blink.DOOR_RELAY_CLOSED)
+        self.pin.value(1)
+        await asyncio.sleep_ms(DOOR_RELAY_PULSE_TIME_MS)
+        self.pin.value(0)
+        Blink.set_blink(Blink.NORMAL)
+
 async def main():
     t1 = Blink.activate()
     t2 = connect_wifi()
@@ -243,10 +256,15 @@ async def main():
 
     t3 = door_sensor.activate()
 
-    async def garage_command_callback(key, value):
-        print(f"{key} is now {value}")
+    door_trigger = DoorTrigger(pin_number=RELAY_CONTROL_PIN)
 
-    t4 = firebase.monitor_key("/garage/command", garage_command_callback);
+    async def door_command_callback(key, value):
+        #print(f"{key} is now {value}")
+        if value == "TRIGGER":
+            await door_trigger.trigger()
+            await firebase.patch_data('/garage', {"command": "IDLE"})
+
+    t4 = firebase.monitor_key("/garage/command", door_command_callback);
 
     # never expected to exit
     await asyncio.gather(t1, t2, t3, t4)
