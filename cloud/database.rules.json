@@ -7,7 +7,7 @@
         ".validate": "newData.val() == 'OPEN' || newData.val() == 'CLOSED'"
       },
       "command": {
-        ".validate": "newData.val() == 'OPEN' || newData.val() == 'CLOSE' || newData.val() == 'IDLE'"
+        ".validate": "newData.val() == 'TRIGGER' || newData.val() == 'IDLE'"
       },
       "last_event": {
         ".validate": "newData.isNumber()"

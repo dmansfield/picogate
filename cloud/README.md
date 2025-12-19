@@ -66,3 +66,7 @@ firebase init
 firebase deploy
 ``` 
 
+After editing the rules, you must redeploy them:
+```
+firebase deploy --only database
+```
