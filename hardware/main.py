@@ -3,7 +3,6 @@ import json
 from machine import Pin
 import micropython
 import network
-import ssl
 
 # --- CONFIGURATION ---
 # DO NOT EDIT BELOW. See README.md#configuration
@@ -142,11 +141,9 @@ class Firebase:
 
         print("--- Patch Request: ---\n" + request)
 
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-
         Blink.set_blink(Blink.FIREBASE_IO)
 
-        reader, writer = await asyncio.open_connection(self.db_hostname, 443, ssl=ssl_context)
+        reader, writer = await asyncio.open_connection(self.db_hostname, 443, ssl=True)
 
         try:
             writer.write(request.encode('utf-8'))
