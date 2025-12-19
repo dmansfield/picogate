@@ -25,7 +25,7 @@ class Blink:
     # Define a bunch of LED blink patterns
     # First number is "on" time, second is "off" time (in seconds)
     BOOT = [.5, .5]
-    WIFI_CONNECTING = [.1, .1]
+    WIFI_CONNECTING = [.25, .25]
     FIREBASE_IO = [1, 0]
     NORMAL = [.1, .4]
     DOOR_RELAY_CLOSED = [.02, .08]
@@ -139,8 +139,6 @@ class Firebase:
             f"{json_body}"
         )
 
-        print("--- Patch Request: ---\n" + request)
-
         Blink.set_blink(Blink.FIREBASE_IO)
 
         reader, writer = await asyncio.open_connection(self.db_hostname, 443, ssl=True)
@@ -161,42 +159,76 @@ class Firebase:
 
         Blink.set_blink(Blink.NORMAL)
 
-#def trigger_relay():
-#    """Simulates a physical button press."""
-#    print("Action: Triggering Relay")
-#    relay.value(1)
-#    time.sleep(0.5)
-#    relay.value(0)
-#
-#    # Wait for door to start moving, then update
-#    time.sleep(2)
-#    update_status()
+    async def monitor_key(self, key, async_callback):
+        """
+        Uses an async streaming HTTP connection to monitor a
+        key in the Firebase database. When a value pushed, an
+        async callback is invoked.
 
-#def listen_loop():
-#    """Listens for 'OPEN' or 'CLOSE' commands."""
-#    # We target the 'command' node specifically
-#    url = f"{FIREBASE_URL}/command.json?auth={FIREBASE_SECRET}"
-#
-#    while True:
-#        try:
-#            # Short-poll listener for MicroPython stability
-#            resp = urequests.get(url)
-#            command = resp.json()
-#            resp.close()
-#
-#            if command in ["OPEN", "CLOSE"]:
-#                trigger_relay()
-#                # Crucial: Reset command to IDLE so it doesn't trigger again
-#                urequests.put(url, json="IDLE").close()
-#
-#            # Check sensor and sync status every 5 seconds regardless of commands
-#            update_status()
-#            time.sleep(5)
-#
-#        except Exception as e:
-#            print("Loop Error:", e)
-#            time.sleep(10)
+        See https://firebase.google.com/docs/database/rest/retrieve-data#section-rest-streaming
 
+        :param key: the key to monitor
+        :param async_callback: an async callback: f(key, value)
+        """
+        connect_retry_wait = 5
+
+        # connect / re-connect loop
+        while True:
+            reader, writer = await asyncio.open_connection(self.db_hostname, 443, ssl=True)
+
+            try:
+                full_path = f"{key}.json?auth={self.db_secret}"
+
+                request = (
+                    f"GET {full_path} HTTP/1.1\r\n"
+                    f"Host: {self.db_hostname}\r\n"
+                    "Accept: text/event-stream\r\n"
+                    "Connection: keep-alive\r\n"
+                    "\r\n"
+                )
+
+                writer.write(request.encode('utf-8'))
+                await writer.drain()
+
+                print(f"--- Filebase monitor stream for key={key} connected ---")
+
+                while True:
+                    line = await reader.readline()
+                    print(f"Got a raw line: {line}")
+                    if not line:
+                        raise OSError("Stream closed by server")
+
+                    # something successful happened, reset the connect timeout
+                    connect_retry_wait = 5
+
+                    line_str = line.decode('utf-8').strip()
+
+                    # TODO: this event handling is a hack. the first line
+                    # is "event: ..." and we're completely ignoring it
+                    # the second line is (sometimes) "data: ..." and we're
+                    # going to take that as is, ignoring put vs patch. also
+                    # data can be null for keep-alive, so another hack for that
+                    if line_str.startswith("data: "):
+                        json_str = line_str[6:]
+                        try:
+                            payload = json.loads(json_str)
+                            # hack for "data: null"
+                            if payload:
+                                # NOTE: data_val type is dependent on what is stored at the key
+                                data_val = payload.get("data")
+                                await async_callback(key, data_val)
+                        except ValueError:
+                            pass
+            except Exception as e:
+                print(f"Monitoring exception: {e}.")
+            finally:
+                writer.close()
+                await writer.wait_closed()
+
+            # wait to retry connection. wait will reset if something successful happens
+            await asyncio.sleep(connect_retry_wait)
+            if connect_retry_wait < 3600:
+                connect_retry_wait *= 2
 
 async def main():
     t1 = Blink.activate()
@@ -211,8 +243,13 @@ async def main():
 
     t3 = door_sensor.activate()
 
+    async def garage_command_callback(key, value):
+        print(f"{key} is now {value}")
+
+    t4 = firebase.monitor_key("/garage/command", garage_command_callback);
+
     # never expected to exit
-    await asyncio.gather(t1, t2, t3)
+    await asyncio.gather(t1, t2, t3, t4)
 
 # Run main() async
 try:
