@@ -31,27 +31,42 @@
         firebase.database().ref("garage/command").set("TRIGGER");
       }
 
-      document.addEventListener('DOMContentLoaded', function() {
+      function setupStatusListener() {
+        firebase.database().ref("garage/status").on(
+          "value",
+          value => {
+            console.log("value=" + JSON.stringify(value));
+            setDoorStatus(value.val());
+          },
+          error => {
+            // This will catch the error that you currently only see in the console
+            console.error("Firebase Read Error:", error);
+          });
+      }
+
+      function loginWithGoogle() {
         let provider = new firebase.auth.GoogleAuthProvider();
+
         firebase.auth()
           .signInWithPopup(provider)
           .then((result) => {
-            console.log("user=" + JSON.stringify(result.user));
-            const avatarImageEl = document.getElementById('avatar');
-            avatarImageEl.src = result.user.photoURL;
-
-            fbDb = firebase.database().ref();
-            fbDb.on("value",
-              value => {
-                console.log("value=" + JSON.stringify(value));
-                setDoorStatus(value.val().garage.status);
-              },
-              error => {
-                // This will catch the error that you currently only see in the console
-                console.error("Firebase Read Error:", error);
-              });
+            console.log("logged in user=" + JSON.stringify(result.user));
           }).catch((error) => {
             console.error("auth error:", error);
+          });
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        firebase.auth().onAuthStateChanged(
+          user => {
+            console.log("onAuthStateChanged:" + JSON.stringify(user));
+            if (user) {
+              const avatarImageEl = document.getElementById('avatar');
+              avatarImageEl.src = user.photoURL;
+              setupStatusListener();
+            } else {
+              loginWithGoogle();
+            }
           });
       });
     </script>
@@ -64,7 +79,7 @@
         <span class="navbar-brand mb-0 h1">PicoGate</span>
         <div class="d-flex align-items-center">
           <a href="#" class="text-white-50 me-3 text-decoration-none small">Sign Out</a>
-          <img id="avatar" src="" class="rounded-circle border border-secondary" alt="Avatar">
+          <img id="avatar" width="32" height="32" src="" class="rounded-circle border border-secondary" alt="Avatar">
         </div>
       </nav>
 
