@@ -70,3 +70,61 @@ After editing the rules, you must redeploy them:
 ```
 firebase deploy --only database
 ```
+
+## Authentication & Authorization
+
+
+Note, the hardware device will log in using the secret, so it will bypass authorization rules for the database completely.
+
+### Disable self-register / account creation
+
+I think it's not possible to automate the disablement of user sign-up using Terraform.
+
+If you wanted to try, it's something like this added to the main.cf:
+
+**THIS DOESN'T WORK WITHOUT SETTING UP BILLING**
+
+```
+resource "google_identity_platform_config" "default" {
+  project     = google_firebase_project.default.project
+
+  # Disables the "Enable create (sign-up)" checkbox programmatically
+  client {
+    permissions {
+      disabled_user_signup = true
+    }
+  }
+}
+
+```
+
+but it seems like that requires a billing account.
+
+**INSTEAD** do it via the Firebase Console:
+
+Build -> authentication -> settings -> user actions -> enable create (sign-up)
+
+### Allow-list Population ###
+
+Users that should be able to access should have emails listed under the "invited_users" key in the database.
+Note that the dots are replaced with underscores.
+
+E.g.:
+```
+"invited_users": {
+    "user1@gmail_com": true,
+    "user2@gmail_com": true
+  },
+```
+
+### Google provider ###
+
+Turn on the google sign-in provider in the build -> authentication -> sign-in method tab.
+
+### Setting up users ###
+
+In the console, under authentication -> users, you must add each user.
+
+You'll have to enable the username/password provider but we won't actually use it.
+
+Make sure to reset the password right after creating it to avoid security issues. We'll use Google provider only.

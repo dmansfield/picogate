@@ -1,7 +1,7 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
+    ".read": "auth != null && root.child('invited_users').child(auth.token.email.replace('.','_')).exists()",
+    ".write": "auth != null && root.child('invited_users').child(auth.token.email.replace('.','_')).exists()",
     "garage": {
       "status": {
         ".validate": "newData.val() == 'OPEN' || newData.val() == 'CLOSED'"
@@ -11,7 +11,7 @@
       },
       "last_event": {
         ".validate": "newData.isNumber()"
-      }	
+      }
     }
   }
 }
