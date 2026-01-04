@@ -93,3 +93,10 @@ to create and won't get checked in:
 
 Note: you may need to manually add new keys if they're added during future
 development. Feel free to improve the config management and send a pull req.
+
+### Firebase Configuration
+
+Note: the URL for the firebase database should be just the hostname, not the scheme, e.g.:
+```
+myproject-default-rtdb.firebaseio.com
+```
