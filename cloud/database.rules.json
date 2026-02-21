@@ -11,6 +11,9 @@
       },
       "last_event": {
         ".validate": "newData.isNumber()"
+      },
+      "trigger_time": {
+        ".validate": "newData.isNumber()"
       }
     }
   }

@@ -3,6 +3,8 @@ import json
 from machine import Pin
 import micropython
 import network
+import time
+import ntptime
 
 # --- CONFIGURATION ---
 # DO NOT EDIT BELOW. See README.md#configuration
@@ -15,6 +17,7 @@ DOOR_SENSOR_PIN = 14
 RELAY_CONTROL_PIN = 1
 DOOR_SENSOR_DEBOUNCE_MS = 50
 DOOR_RELAY_PULSE_TIME_MS = 300
+TRIGGER_FRESH_SECONDS = 10
 ### END GENERATED CONTENT
 # --- END CONFIGURATION ---
 
@@ -64,6 +67,11 @@ class Blink:
                 on = not on
                 await asyncio.sleep(delay)
 
+def get_unix_time_ms():
+    # MicroPython epoch is 2000-01-01. Unix is 1970-01-01.
+    # 946684800 seconds between them.
+    return (time.time() + 946684800) * 1000
+
 # --- WIFI ---
 async def connect_wifi():
     Blink.set_blink(Blink.WIFI_CONNECTING)
@@ -83,6 +91,12 @@ async def connect_wifi():
 
     if wlan.isconnected():
         print("Connected! IP:", wlan.ifconfig()[0])
+        try:
+            print("Syncing time with NTP...")
+            ntptime.settime()
+            print("Time synced!")
+        except Exception as e:
+            print(f"NTP sync failed: {e}")
         Blink.set_blink(Blink.NORMAL)
     else:
         print("WiFi failed. Retrying...")
@@ -279,12 +293,33 @@ async def main():
     door_trigger = DoorTrigger(pin_number=RELAY_CONTROL_PIN)
 
     async def door_command_callback(key, value):
-        #print(f"{key} is now {value}")
-        if value == "TRIGGER":
-            await door_trigger.trigger()
+        command = None
+        trigger_time = 0
+        
+        if isinstance(value, dict):
+            command = value.get("command")
+            trigger_time = value.get("trigger_time", 0)
+            
+        if command == "TRIGGER":
+            current_ms = get_unix_time_ms()
+            fresh = False
+            
+            if trigger_time:
+                age_sec = (current_ms - trigger_time) / 1000
+                print(f"Trigger age: {age_sec}s")
+                if age_sec <= TRIGGER_FRESH_SECONDS:
+                    fresh = True
+                else:
+                    print("Trigger is stale, ignoring.")
+            else:
+                print("Trigger timestamp missing, ignoring.")
+                
+            if fresh:
+                await door_trigger.trigger()
+                
             await firebase.patch_data('/door', {"command": "IDLE"})
 
-    t4 = firebase.monitor_key("/door/command", door_command_callback);
+    t4 = firebase.monitor_key("/door", door_command_callback);
 
     # never expected to exit
     await asyncio.gather(t1, t2, t3, t4)

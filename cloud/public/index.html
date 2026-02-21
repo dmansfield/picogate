@@ -1,109 +1,114 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PicoGate Garage Door Controller</title>
 
-    <script defer src="/__/firebase/12.7.0/firebase-app-compat.js"></script>
-    <script defer src="/__/firebase/12.7.0/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/12.7.0/firebase-database-compat.js"></script>
-    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PicoGate Garage Door Controller</title>
 
-    <script>
-      // Called when the RTDB indicates the door's actual status has changed
-      function setDoorStatus(newStatus) {
-        const statusElement = document.getElementById('statusBadge');
+  <script defer src="/__/firebase/12.7.0/firebase-app-compat.js"></script>
+  <script defer src="/__/firebase/12.7.0/firebase-auth-compat.js"></script>
+  <script defer src="/__/firebase/12.7.0/firebase-database-compat.js"></script>
+  <script defer src="/__/firebase/init.js?useEmulator=true"></script>
 
-        if (newStatus === 'CLOSED') {
-          statusElement.textContent = 'Closed';
-          statusElement.classList.remove('bg-danger'); // Remove red class
-          statusElement.classList.add('bg-success');   // Add green class
-        } else {
-          statusElement.textContent = 'Open';
-          statusElement.classList.remove('bg-success'); // Remove green class
-          statusElement.classList.add('bg-danger');     // Add red class
-        }
+  <script>
+    // Called when the RTDB indicates the door's actual status has changed
+    function setDoorStatus(newStatus) {
+      const statusElement = document.getElementById('statusBadge');
+
+      if (newStatus === 'CLOSED') {
+        statusElement.textContent = 'Closed';
+        statusElement.classList.remove('bg-danger'); // Remove red class
+        statusElement.classList.add('bg-success');   // Add green class
+      } else {
+        statusElement.textContent = 'Open';
+        statusElement.classList.remove('bg-success'); // Remove green class
+        statusElement.classList.add('bg-danger');     // Add red class
       }
+    }
 
-      // Called when the UI element is clicked to trigger the door to open/close
-      function triggerDoor() {
-        firebase.database().ref("door/command").set("TRIGGER");
-      }
-
-      function setupStatusListener() {
-        firebase.database().ref("door/status").on(
-          "value",
-          value => {
-            console.log("value=" + JSON.stringify(value));
-            setDoorStatus(value.val());
-          },
-          error => {
-            // This will catch the error that you currently only see in the console
-            console.error("Firebase Read Error:", error);
-          });
-      }
-
-      function loginWithGoogle() {
-        let provider = new firebase.auth.GoogleAuthProvider();
-
-        firebase.auth()
-          .signInWithPopup(provider)
-          .then((result) => {
-            console.log("logged in user=" + JSON.stringify(result.user));
-          }).catch((error) => {
-            console.error("auth error:", error);
-          });
-      }
-
-      document.addEventListener('DOMContentLoaded', function() {
-        firebase.auth().onAuthStateChanged(
-          user => {
-            console.log("onAuthStateChanged:" + JSON.stringify(user));
-            if (user) {
-              const avatarImageEl = document.getElementById('avatar');
-              avatarImageEl.src = user.photoURL;
-              setupStatusListener();
-            } else {
-              loginWithGoogle();
-            }
-          });
+    // Called when the UI element is clicked to trigger the door to open/close
+    function triggerDoor() {
+      firebase.database().ref("door").update({
+        "command": "TRIGGER",
+        "trigger_time": firebase.database.ServerValue.TIMESTAMP
       });
-    </script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-  </head>
-  <body>
-    <div class="vh-100 bg-light d-flex flex-column">
-      <!-- 1. Navbar / Title Bar -->
-      <nav class="navbar navbar-dark bg-dark px-3">
-        <span class="navbar-brand mb-0 h1">PicoGate</span>
-        <div class="d-flex align-items-center">
-          <a href="#" class="text-white-50 me-3 text-decoration-none small">Sign Out</a>
-          <img id="avatar" width="32" height="32" src="" class="rounded-circle border border-secondary" alt="Avatar">
+    }
+
+    function setupStatusListener() {
+      firebase.database().ref("door/status").on(
+        "value",
+        value => {
+          console.log("value=" + JSON.stringify(value));
+          setDoorStatus(value.val());
+        },
+        error => {
+          // This will catch the error that you currently only see in the console
+          console.error("Firebase Read Error:", error);
+        });
+    }
+
+    function loginWithGoogle() {
+      let provider = new firebase.auth.GoogleAuthProvider();
+
+      firebase.auth()
+        .signInWithPopup(provider)
+        .then((result) => {
+          console.log("logged in user=" + JSON.stringify(result.user));
+        }).catch((error) => {
+          console.error("auth error:", error);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      firebase.auth().onAuthStateChanged(
+        user => {
+          console.log("onAuthStateChanged:" + JSON.stringify(user));
+          if (user) {
+            const avatarImageEl = document.getElementById('avatar');
+            avatarImageEl.src = user.photoURL;
+            setupStatusListener();
+          } else {
+            loginWithGoogle();
+          }
+        });
+    });
+  </script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+  <div class="vh-100 bg-light d-flex flex-column">
+    <!-- 1. Navbar / Title Bar -->
+    <nav class="navbar navbar-dark bg-dark px-3">
+      <span class="navbar-brand mb-0 h1">PicoGate</span>
+      <div class="d-flex align-items-center">
+        <a href="#" class="text-white-50 me-3 text-decoration-none small">Sign Out</a>
+        <img id="avatar" width="32" height="32" src="" class="rounded-circle border border-secondary" alt="Avatar">
+      </div>
+    </nav>
+
+    <!-- 2. Main Page Content -->
+    <main class="flex-grow-1 d-flex flex-column align-items-center justify-content-center">
+
+      <!-- Status Area -->
+      <div class="mb-4 text-center">
+        <!-- Added an ID here: -->
+        <div id="statusBadge" class="badge bg-danger p-3 px-5 rounded-pill shadow-sm" style="font-size: 1.5rem;">
+          Unknown
         </div>
-      </nav>
+      </div>
 
-      <!-- 2. Main Page Content -->
-      <main class="flex-grow-1 d-flex flex-column align-items-center justify-content-center">
+      <!-- Clickable Remote Area -->
+      <!-- Added an ID and an onclick event here: -->
+      <button id="remoteButton" onclick="triggerDoor()"
+        class="btn btn-outline-secondary p-4 shadow-lg border-0 rounded-4" style="max-width: 250px;">
+        <img src="garage_remote.png" class="img-fluid" alt="Chamberlain Remote">
+        <p class="mt-2 text-muted mb-0">Press to Operate</p>
+      </button>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+</body>
 
-        <!-- Status Area -->
-        <div class="mb-4 text-center">
-          <!-- Added an ID here: -->
-          <div id="statusBadge" class="badge bg-danger p-3 px-5 rounded-pill shadow-sm" style="font-size: 1.5rem;">
-            Unknown
-          </div>
-        </div>
-
-        <!-- Clickable Remote Area -->
-        <!-- Added an ID and an onclick event here: -->
-        <button id="remoteButton" onclick="triggerDoor()"
-                class="btn btn-outline-secondary p-4 shadow-lg border-0 rounded-4" style="max-width: 250px;">
-          <img src="garage_remote.png"
-               class="img-fluid" alt="Chamberlain Remote">
-          <p class="mt-2 text-muted mb-0">Press to Operate</p>
-        </button>
-      </main>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
-  </body>
 </html>
