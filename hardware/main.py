@@ -67,11 +67,6 @@ class Blink:
                 on = not on
                 await asyncio.sleep(delay)
 
-def get_unix_time_ms():
-    # MicroPython epoch is 2000-01-01. Unix is 1970-01-01.
-    # 946684800 seconds between them.
-    return (time.time() + 946684800) * 1000
-
 # --- WIFI ---
 async def connect_wifi():
     Blink.set_blink(Blink.WIFI_CONNECTING)
@@ -301,11 +296,10 @@ async def main():
             trigger_time = value.get("trigger_time", 0)
             
         if command == "TRIGGER":
-            current_ms = get_unix_time_ms()
             fresh = False
             
             if trigger_time:
-                age_sec = (current_ms - trigger_time) / 1000
+                age_sec = time.time() - trigger_time / 1000
                 print(f"Trigger age: {age_sec}s")
                 if age_sec <= TRIGGER_FRESH_SECONDS:
                     fresh = True
