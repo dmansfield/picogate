@@ -30,23 +30,39 @@ class Blink:
     FIREBASE_IO = [1, 0]
     NORMAL = [.1, .4]
     DOOR_RELAY_CLOSED = [.02, .08]
+    ERROR = [.6, .1, .1, .1]
 
-    current = BOOT
+    led = Pin("LED", Pin.OUT)
+    blink_task = None
+    next_blink = BOOT
 
     @staticmethod
     def set_blink(b):
-        Blink.current = b
+        Blink.next_blink = b
+        if Blink.blink_task != None:
+            Blink.blink_task.cancel()
 
     @staticmethod
     async def activate():
-        led = Pin("LED", Pin.OUT)
-
         while True:
-            led.value(1)
-            await asyncio.sleep(Blink.current[0])
+            Blink.blink_task = asyncio.create_task(Blink._doBlink(Blink.next_blink))
+            try:
+                await Blink.blink_task
+            except asyncio.CancelledError:
+                pass
 
-            led.value(0)
-            await asyncio.sleep(Blink.current[1])
+    @staticmethod
+    async def _doBlink(pattern):
+        """
+        Blinks the current defined pattern until canceled.
+        """
+        while True:
+            on = True
+            for delay in pattern:
+                Blink.led.value(1 if on else 0)
+                #print("blink on" if on else "blink off")
+                on = not on
+                await asyncio.sleep(delay)
 
 # --- WIFI ---
 async def connect_wifi():
@@ -63,6 +79,7 @@ async def connect_wifi():
     while not wlan.isconnected() and timeout > 0:
         await asyncio.sleep(1)
         timeout -= 1
+        print("Waiting for WiFi...")
 
     if wlan.isconnected():
         print("Connected! IP:", wlan.ifconfig()[0])
@@ -125,6 +142,8 @@ class Firebase:
         :param path: e.g. /garage
         :param data: a dict (not string) of data to set, e.g. {"status":"OPEN"}
         """
+        print("patching", path, data)
+        
         json_body = json.dumps(data)
         content_length = len(json_body.encode('utf-8'))
 
@@ -149,8 +168,8 @@ class Firebase:
             await writer.drain()
 
             response = await reader.read(-1)
-            print("--- Patch Response Received ---")
-            print(response.decode('utf-8'))
+            #print("--- Patch Response Received ---")
+            #print(response.decode('utf-8'))
 
         finally:
             writer.close()
@@ -195,7 +214,7 @@ class Firebase:
 
                 while True:
                     line = await reader.readline()
-                    print(f"Got a raw line: {line}")
+                    #print(f"Got a raw line: {line}")
                     if not line:
                         raise OSError("Stream closed by server")
 
