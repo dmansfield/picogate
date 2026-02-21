@@ -2,7 +2,7 @@
   "rules": {
     ".read": "auth != null && root.child('invited_users').child(auth.token.email.replace('.','_')).exists()",
     ".write": "auth != null && root.child('invited_users').child(auth.token.email.replace('.','_')).exists()",
-    "garage": {
+    "door": {
       "status": {
         ".validate": "newData.val() == 'OPEN' || newData.val() == 'CLOSED'"
       },

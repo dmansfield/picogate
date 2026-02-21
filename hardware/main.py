@@ -269,7 +269,8 @@ async def main():
     firebase = Firebase(db_hostname=FIREBASE_HOSTNAME, db_secret=FIREBASE_SECRET)
 
     async def door_callback(state):
-        await firebase.patch_data("/garage", {"status": state})
+        print("door", state)
+        await firebase.patch_data("/door", {"status": state})
 
     door_sensor = DoorSensor(pin_number=DOOR_SENSOR_PIN, async_callback=door_callback)
 
@@ -281,9 +282,9 @@ async def main():
         #print(f"{key} is now {value}")
         if value == "TRIGGER":
             await door_trigger.trigger()
-            await firebase.patch_data('/garage', {"command": "IDLE"})
+            await firebase.patch_data('/door', {"command": "IDLE"})
 
-    t4 = firebase.monitor_key("/garage/command", door_command_callback);
+    t4 = firebase.monitor_key("/door/command", door_command_callback);
 
     # never expected to exit
     await asyncio.gather(t1, t2, t3, t4)

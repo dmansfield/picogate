@@ -28,11 +28,11 @@
 
       // Called when the UI element is clicked to trigger the door to open/close
       function triggerDoor() {
-        firebase.database().ref("garage/command").set("TRIGGER");
+        firebase.database().ref("door/command").set("TRIGGER");
       }
 
       function setupStatusListener() {
-        firebase.database().ref("garage/status").on(
+        firebase.database().ref("door/status").on(
           "value",
           value => {
             console.log("value=" + JSON.stringify(value));
