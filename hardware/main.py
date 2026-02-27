@@ -117,7 +117,7 @@ class DoorSensor:
 
     def _callback(self, ignored_pin):
         """
-        ISR callback. We only signal to wake up the async handler using the flag 
+        ISR callback. We only signal to wake up the async handler using the flag
         """
         self.triggered.set()
 
@@ -131,7 +131,7 @@ class DoorSensor:
             new_value = self.pin.value()
             if new_value == last_value:
                 continue
-            
+
             last_value = new_value
             state = "CLOSED" if new_value == 0 else "OPEN"
 
@@ -152,7 +152,7 @@ class Firebase:
         :param data: a dict (not string) of data to set, e.g. {"status":"OPEN"}
         """
         print("patching", path, data)
-        
+
         json_body = json.dumps(data)
         content_length = len(json_body.encode('utf-8'))
 
@@ -188,6 +188,39 @@ class Firebase:
 
         Blink.set_blink(Blink.NORMAL)
 
+    async def _read_sse_event(self, reader):
+        """
+        Reads a single Server-Sent Event from the reader.
+        Returns a tuple (event_name, event_data) or (None, None) if the stream is closed.
+        """
+        event_name = None
+        event_data = None
+
+        while True:
+            line = await reader.readline()
+            if not line:
+                return None, None
+
+            line_str = line.decode('utf-8').strip()
+
+            if not line_str:
+                # Empty line signifies the end of an event
+                if event_name is not None:
+                    return event_name, event_data
+                continue
+
+            if line_str.startswith("event: "):
+                event_name = line_str[7:].strip()
+            elif line_str.startswith("data: "):
+                json_str = line_str[6:].strip()
+                if json_str == "null":
+                    event_data = None
+                else:
+                    try:
+                        event_data = json.loads(json_str)
+                    except ValueError:
+                        event_data = None
+
     async def monitor_key(self, key, async_callback):
         """
         Uses an async streaming HTTP connection to monitor a
@@ -222,32 +255,26 @@ class Firebase:
                 print(f"--- Filebase monitor stream for key={key} connected ---")
 
                 while True:
-                    line = await reader.readline()
-                    #print(f"Got a raw line: {line}")
-                    if not line:
+                    event_name, event_data = await self._read_sse_event(reader)
+                    if event_name is None:
                         raise OSError("Stream closed by server")
 
                     # something successful happened, reset the connect timeout
                     connect_retry_wait = 5
 
-                    line_str = line.decode('utf-8').strip()
-
-                    # TODO: this event handling is a hack. the first line
-                    # is "event: ..." and we're completely ignoring it
-                    # the second line is (sometimes) "data: ..." and we're
-                    # going to take that as is, ignoring put vs patch. also
-                    # data can be null for keep-alive, so another hack for that
-                    if line_str.startswith("data: "):
-                        json_str = line_str[6:]
-                        try:
-                            payload = json.loads(json_str)
-                            # hack for "data: null"
-                            if payload:
-                                # NOTE: data_val type is dependent on what is stored at the key
-                                data_val = payload.get("data")
-                                await async_callback(key, data_val)
-                        except ValueError:
-                            pass
+                    if event_name in ("put", "patch"):
+                        if event_data is not None:
+                            # NOTE: data_val type is dependent on what is stored at the key
+                            data_val = event_data.get("data")
+                            await async_callback(key, data_val)
+                    elif event_name == "keep-alive":
+                        pass
+                    elif event_name == "cancel":
+                        print("Stream canceled by server")
+                        break
+                    elif event_name == "auth_revoked":
+                        print("Stream auth revoked")
+                        break
             except Exception as e:
                 print(f"Monitoring exception: {e}.")
             finally:
@@ -290,14 +317,14 @@ async def main():
     async def door_command_callback(key, value):
         command = None
         trigger_time = 0
-        
+
         if isinstance(value, dict):
             command = value.get("command")
             trigger_time = value.get("trigger_time", 0)
-            
+
         if command == "TRIGGER":
             fresh = False
-            
+
             if trigger_time:
                 age_sec = time.time() - trigger_time / 1000
                 print(f"Trigger age: {age_sec}s")
@@ -307,10 +334,10 @@ async def main():
                     print("Trigger is stale, ignoring.")
             else:
                 print("Trigger timestamp missing, ignoring.")
-                
+
             if fresh:
                 await door_trigger.trigger()
-                
+
             await firebase.patch_data('/door', {"command": "IDLE"})
 
     t4 = firebase.monitor_key("/door", door_command_callback);
